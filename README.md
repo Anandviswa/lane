@@ -16,7 +16,10 @@ saves in your browser**. A Google Sheets backend through Apps Script is next (se
 
 ## Try it
 
-Open **`lane.html`** in Chrome. That's all there is to it.
+**Live demo:** https://anandviswa.github.io/lane/ — each visitor gets their own copy of the demo,
+saved in their own browser.
+
+Or download the repo and open **`lane.html`** in Chrome. That's all there is to it.
 
 Or serve the folder:
 
