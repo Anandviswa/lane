@@ -4827,13 +4827,60 @@ function tabFiles(p, r, viewer){
       h("thead", null, h("tr", null, h("th", null, "Name"), h("th", null, "Added by"), h("th", null, "When"), !cust ? h("th", null, "Visibility") : null, h("th"))),
       h("tbody", null, fs.map(f => h("tr", null,
         h("td", null, h("div", { class:"split" }, h("span", { class:"fileic " + f.kind }, icon(f.kind === "doc" ? "file" : "link", "sm")),
-          h("div", { class:"grow" }, h("a", { href:f.kind === "link" ? f.url : "javascript:void 0", target:f.kind === "link" ? "_blank" : null, rel:"noopener",
-            onclick:f.kind === "doc" ? () => docModal(f, viewer) : null, style:"font-weight:500;color:var(--text)" }, f.name),
-            h("div", { class:"faint", style:"font-size:11.5px" }, f.kind === "doc" ? "Document" : f.url)))),
+          h("div", { class:"grow" }, fileLink(f, viewer)))),
         h("td", null, whoRow(f.author_id)), h("td", { class:"mono faint", style:"font-size:11.5px" }, fmtAgo(f.at)),
         !cust ? h("td", null, h("button", { class:"chk-l", onclick:() => { update("files", f.id, { private:!f.private }); commit(); } }, icon(f.private ? "lock" : "eye", "sm"), f.private ? "Private" : "Shared")) : null,
         h("td", { style:"text-align:right" }, !cust || f.author_id === viewer.id ? h("button", { class:"iconbtn", title:"Delete", onclick:() => confirmBox("Delete “" + f.name + "”?", "This can't be undone.", "Delete", () => { remove("files", f.id); commit(); }, true) }, icon("trash", "sm")) : null)))))
       : empty("No files yet."))];
+}
+/* A file row's name: a document opens in Orbit; a filed email or transcript opens in
+   Orbit's reader (text fetched from the Sheet's Drive copy); a local file:// path
+   can't open from a web page, so its path is copied; anything else opens in a new tab. */
+function fileLink(f, viewer){
+  const st = "font-weight:500;color:var(--text);cursor:pointer";
+  const src = f.url && !isCustomer(viewer) ? rows("sources", s => s.file_url === f.url)[0] : null;
+  const sub = t => h("div", { class:"faint", style:"font-size:11.5px" }, t);
+  if(f.kind === "doc") return [h("a", { href:"javascript:void 0", onclick:() => docModal(f, viewer), style:st }, f.name), sub("Document")];
+  if(src && syncConfigured()) return [h("a", { href:"javascript:void 0", onclick:() => sourceModal(src), style:st }, f.name),
+    sub((src.kind === "email" ? "Email" : src.kind === "transcript" ? "Call transcript" : "Note") + (src.size ? " · " + Number(src.size).toLocaleString() + " characters" : "") + " · opens in Orbit")];
+  if(/^file:/i.test(f.url || "")){
+    const path = decodeURIComponent(f.url.replace(/^file:\/\//i, ""));
+    return [h("a", { href:"javascript:void 0", style:st, onclick:() => {
+      (navigator.clipboard ? navigator.clipboard.writeText(path) : Promise.reject()).then(() => toast("A file on your Mac — path copied. Open it in Finder or ask Claude."), () => toast("A file on your Mac: " + path)); } }, f.name),
+      sub("File on your Mac · click to copy its path")];
+  }
+  return [h("a", { href:f.url || "javascript:void 0", target:f.url ? "_blank" : null, rel:"noopener", style:st }, f.name), sub(f.url || "")];
+}
+/* A WebVTT transcript reads as one "00:17:08  Matt: …" line per cue. */
+function readable(t){
+  if(!/^WEBVTT/.test(t)) return t;
+  const out = [], lines = t.split(/\r?\n/);
+  for(let i = 0; i < lines.length; i++){
+    const m = lines[i].match(/^(\d\d:\d\d:\d\d)\.\d+ -->/);
+    if(!m) continue;
+    const said = []; while(i + 1 < lines.length && lines[i + 1].trim() !== "") said.push(lines[++i].trim());
+    if(said.length) out.push(m[1] + "  " + said.join(" "));
+  }
+  return out.join("\n");
+}
+function sourceModal(src){
+  let text = null, err = "", q = "";
+  const redraw = openModal(() => {
+    const when = src.occurred_at ? fmtDY(String(src.occurred_at).slice(0, 10)) : "";
+    const body = err ? h("p", { class:"sub" }, "Couldn't load it: " + err)
+      : text === null ? h("p", { class:"sub" }, "Loading from your Orbit Sheet…")
+      : h("pre", { class:"mono", style:"white-space:pre-wrap;font-size:12.5px;line-height:1.6;max-height:62vh;overflow:auto;margin:0" },
+          q ? text.split("\n").filter(l => l.toLowerCase().indexOf(q.toLowerCase()) > -1).join("\n") || "No line contains “" + q + "”." : text);
+    const find = h("input", { class:"inp", placeholder:"Show only lines containing…", value:q, style:"max-width:280px",
+      oninput:e => { q = e.target.value; const pos = e.target.selectionStart; redraw(); const i = document.querySelector("#ln-modal .inp"); if(i){ i.focus(); i.setSelectionRange(pos, pos); } } });
+    return [modalHead(src.subject || "Source", [when, src.people || src.from].filter(Boolean).join(" · ")),
+      h("div", { class:"modal-b" }, h("div", { class:"acts", style:"margin-bottom:10px" }, find,
+        src.file_url ? h("a", { class:"btn sm", href:src.file_url, target:"_blank", rel:"noopener" }, "Open in Drive") : null), body)];
+  }, "wide");
+  fetch(cfg.url, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body:JSON.stringify({ token:cfg.token, action:"source_get", id:src.id, offset:0, length:100000 }) })
+    .then(r => r.json()).then(res => { if(!res || !res.ok) throw new Error(res && res.error || "rejected"); text = readable(res.text); redraw(); })
+    .catch(e => { err = syncError(e, "error"); redraw(); });
 }
 function fileModal(p, kind, viewer){
   viewer = viewer || me();
