@@ -4,8 +4,8 @@
    ===================================================================== */
 
 /* Per-viewer conveniences only (remembered toggles). Never data. */
-let ui = Object.assign({ planMode:"board", who:"all", showDone:true, zoom:"week", q:"" }, read("lane.ui", {}));
-function setUi(p){ Object.assign(ui, p); write("lane.ui", ui); scheduleRender(); }
+let ui = Object.assign({ planMode:"board", who:"all", showDone:true, zoom:"week", q:"" }, read("orbit.ui", {}));
+function setUi(p){ Object.assign(ui, p); write("orbit.ui", ui); scheduleRender(); }
 
 function projectHeader(p, tab){
   const a = byId("accounts", p.account_id) || {}, hl = health(p.id);
@@ -137,7 +137,7 @@ function planBar(p){
   return h("div", { class:"planbar" },
     segm([["board","Board","board"],["gantt","Gantt","gantt"]], ui.planMode, v => setUi({ planMode:v })),
     segm([["all","All"],["team","Our team"],["customer","Customer"],["mine","Mine"]], ui.who, v => setUi({ who:v })),
-    h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("lane.ui", ui); scheduleRender(); } }),
+    h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("orbit.ui", ui); scheduleRender(); } }),
     h("label", { class:"chk-l" }, h("input", { type:"checkbox", checked:ui.showDone, onchange:e => setUi({ showDone:e.target.checked }) }), "Show completed"),
     h("span", { class:"grow" }),
     ui.planMode === "gantt" ? segm([["day","Days"],["week","Weeks"],["month","Months"]], ui.zoom, v => setUi({ zoom:v })) : null,
@@ -359,7 +359,7 @@ function tabList(p, r){
   return [
     h("div", { class:"filters" },
       segm([["","All"],["open","Open"],["mine","Mine"],["overdue","Overdue"],["atrisk","At risk"],["blocked","Blocked"],["done","Completed"]], f, v => go("projects/" + p.id + "/list", v ? { f:v } : null)),
-      h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("lane.ui", ui); scheduleRender(); } }),
+      h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("orbit.ui", ui); scheduleRender(); } }),
       h("span", { style:"flex:1" }),
       h("button", { class:"btn primary", onclick:() => quickTaskModal({ project_id:p.id }) }, icon("plus", "sm"), "New task")),
     h("div", { class:"card" }, h("div", { class:"tbl-wrap" }, h("table", { class:"tbl" },
@@ -660,6 +660,16 @@ function drawerBody(t, viewer, portal){
         canEdit ? prop("Flags", "flag", [h("label", { class:"chk-l" }, h("input", { type:"checkbox", checked:!!t.at_risk, onchange:e => { update("tasks", t.id, { at_risk:e.target.checked }); logAct(p.id, t.id, (e.target.checked ? "marked “" : "cleared at-risk on “") + t.name + (e.target.checked ? "” at risk" : "”")); commit(); } }), "At risk"),
           h("label", { class:"chk-l", title:"Private tasks are hidden from the customer" }, h("input", { type:"checkbox", checked:!!t.private, onchange:e => { update("tasks", t.id, { private:e.target.checked }); commit(); } }), icon("lock", "xs"), "Private")]) : null),
 
+      /* Orbit: who does the work, and how far an agent may go (set by Claude's plans; editable here) */
+      (canEdit && !portal) ? h("div", { class:"props" },
+        prop("Doer", "users", [sel([["anand","Me"],["claude","Claude"]], t.doer || "anand", v => { update("tasks", t.id, { doer:v }); commit(); }),
+          t.kind ? h("span", { class:"faint", style:"margin-left:8px" }, t.kind.replace(/_/g, " ")) : null]),
+        t.doer === "claude" ? prop("Claude may", "flag", sel([["draft","Draft only"],["do","Do it"],["do_then_ask","Do it, ask before anything live"]], t.autonomy || "draft",
+          v => { update("tasks", t.id, { autonomy:v }); commit(); })) : null,
+        t.app_ref ? prop("App", "board", h("span", { class:"mono", style:"font-size:12px" }, t.app_ref)) : null,
+        t.source_ref ? prop("Source", "chat", h("span", { style:"font-size:12.5px" }, t.source_ref)) : null) : null,
+      (t.agent_brief && !portal) ? sec("Brief for Claude") : null,
+      (t.agent_brief && !portal) ? h("pre", { class:"mono", style:"white-space:pre-wrap;font-size:12px;background:var(--surf2,#f6f6f4);border-radius:8px;padding:10px 12px;margin:0 0 12px" }, t.agent_brief) : null,
       sec("Description"),
       canEdit ? richEditor(t.description, v => { if(v !== (byId("tasks", t.id) || {}).description){ update("tasks", t.id, { description:v }); saveDb(); } }, { placeholder:"Add details, a checklist, links…" })
         : h("div", { class:"rich", html:cleanHTML(t.description) || "<p class='faint'>No description.</p>" }),

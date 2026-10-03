@@ -403,17 +403,22 @@ function approveView(ws, we){
 function viewSettings(){
   crumbs = [["Settings"]];
   const url = h("input", { class:"inp mono", style:"font-size:12px", placeholder:"https://script.google.com/macros/s/…/exec", value:cfg.url });
-  const tok = h("input", { class:"inp mono", style:"font-size:12px", placeholder:"same string as SECRET in Code.gs", value:cfg.token });
+  const tok = h("input", { class:"inp mono", style:"font-size:12px", placeholder:"orb_… (printed by setup() in Apps Script)", type:"password", autocomplete:"off", value:cfg.token });
   const dirty = read(LS_DIRTY, []).length;
   const counts = COLLS.map(c => [c, rows(c).length]);
   return h("div", { class:"page" },
     pageHead("Workspace", "Settings", null),
     h("div", { class:"grid g2" },
       card("Google Sheets sync", syncConfigured() ? syncState.text : "Off", [
-        h("p", { class:"sub", style:"margin-bottom:12px" }, "Everything saves to this browser first. Once an Apps Script web app is deployed (Phase 2), paste its URL here and every change is pushed to a Google Sheet — one tab per record type — and pulled back on other devices."),
+        h("p", { class:"sub", style:"margin-bottom:12px" }, "Everything saves to this browser first, then syncs to your Orbit Google Sheet, so your phone, your Mac and Claude all see the same data. Paste the web app URL and the secret that setup() printed."),
         h("div", { class:"fld" }, h("label", null, "Apps Script web app URL"), url, h("div", { class:"hint" }, "Ends in /exec. Deploy → New deployment → Web app, execute as Me, access Anyone.")),
         h("div", { class:"fld" }, h("label", null, "Shared secret"), tok),
-        h("div", { class:"acts" }, h("button", { class:"btn primary", onclick:() => { cfg.url = url.value.trim(); cfg.token = tok.value.trim(); saveCfg(); if(syncConfigured()){ sync(); toast("Saved — syncing"); } else toast("Sync turned off"); render(); } }, "Save"),
+        h("div", { class:"acts" }, h("button", { class:"btn primary", onclick:() => {
+            const u = url.value.trim(), k = tok.value.trim();
+            if(!u || !k){ cfg.url = u; cfg.token = k; saveCfg(); toast("Sync turned off"); render(); return; }
+            if(syncConfigured() && u === cfg.url){ cfg.token = k; saveCfg(); sync(); toast("Saved — syncing"); render(); return; }
+            confirmBox("Connect this device to the Sheet?", "Everything in this browser is replaced by what's in the Sheet. Changes made here that never synced are lost. My Day is not touched.", "Connect",
+              () => { connectSheet(u, k); go("home"); toast("Connecting — loading from the Sheet"); }, true); } }, syncConfigured() ? "Save" : "Connect"),
           syncConfigured() ? h("button", { class:"btn", onclick:() => { sync(); pull(); toast("Syncing…"); } }, "Sync now") : null,
           h("span", { class:"faint", style:"font-size:12px" }, plural(dirty, "change") + " waiting to sync"))]),
       card("Data in this browser", null, [
@@ -423,7 +428,7 @@ function viewSettings(){
           h("label", { class:"btn" }, "Import JSON", h("input", { type:"file", accept:".json,application/json", hidden:true, onchange:e => importJson(e.target.files[0]) })),
           h("button", { class:"btn danger", onclick:() => confirmBox("Reset to the demo data?", "Replaces every project, task and message in this browser with the Stonebridge demo. My Day is not touched.", "Reset",
             () => { seedDb(); write(LS_DIRTY, []); commit(); go("home"); toast("Demo data restored"); }, true) }, "Reset demo data"))]),
-      card("My Day", null, [h("p", { class:"sub" }, "My Day is the Day app, running inside Lane. Its mood, routine, journal and personal tasks stay in its own storage and keep its own Google Sheet sync — set that up from My Day → Settings. Project tasks assigned to you and approvals waiting on you show up in its Today and Home screens.")]),
+      card("My Day", null, [h("p", { class:"sub" }, "My Day is the Day app, running inside Orbit. Its mood, routine, journal and personal tasks stay in its own storage and keep its own Google Sheet sync — set that up from My Day → Settings. Project tasks assigned to you and approvals waiting on you show up in its Today and Home screens.")]),
       card("Team", plural(rows("users", u => u.type === "TEAM").length, "person", "people"), [
         rows("users", u => u.type === "TEAM").map(u => h("div", { style:"margin-bottom:9px" }, whoRow(u, u.role + " · " + (u.email || "")))),
         h("button", { class:"btn sm", onclick:() => { openModal(() => {
@@ -435,12 +440,12 @@ function viewSettings(){
 }
 function exportJson(){
   const blob = new Blob([JSON.stringify(db, null, 1)], { type:"application/json" });
-  const a = h("a", { href:URL.createObjectURL(blob), download:"lane-export-" + todayISO() + ".json" }); document.body.appendChild(a); a.click(); a.remove();
+  const a = h("a", { href:URL.createObjectURL(blob), download:"orbit-export-" + todayISO() + ".json" }); document.body.appendChild(a); a.click(); a.remove();
 }
 function importJson(file){
   if(!file) return;
   const fr = new FileReader();
-  fr.onload = () => { try{ const d = JSON.parse(fr.result); if(!d || !Array.isArray(d.projects)) throw new Error("not a Lane export");
+  fr.onload = () => { try{ const d = JSON.parse(fr.result); if(!d || !Array.isArray(d.projects)) throw new Error("not a Orbit export");
     COLLS.forEach(c => d[c] = d[c] || []); db = d; saveDb(); COLLS.forEach(c => db[c].forEach(r => markDirty(c, r.id))); commit(); toast("Imported"); }
     catch(e){ toast("Couldn't import: " + e.message); } };
   fr.readAsText(file);

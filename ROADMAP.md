@@ -1,4 +1,4 @@
-# Lane — what's next
+# Orbit — what's next
 
 Phase 1 (this repo today) is a working single-file prototype that saves in the browser.
 This file lists what comes after it, in the order it should be done.
@@ -6,9 +6,9 @@ This file lists what comes after it, in the order it should be done.
 | Phase | Goal | Status |
 |---|---|---|
 | 1 | HTML prototype: core delivery and My Day | ✅ Done |
-| 2 | Google Sheets backend through Apps Script | ⏭ Next |
+| 2 | Google Sheets backend through Apps Script, plus Claude Code tools (MCP) and Zoho mail | ✅ Built — see server/DEPLOY.md |
 | 3 | Real users: login, server-side privacy, customer access | Planned |
-| 4 | The rest of Rocketlane: resourcing, money, automations, forms, reports | Planned |
+| 4 | Resourcing, money, automations, forms, reports | Planned |
 | — | Quality work that runs alongside the phases | Ongoing |
 
 ---
@@ -90,7 +90,7 @@ anyone holding the token can read everything. So, before any real customer uses 
 - [ ] **Enforce privacy on the server:** `doGet` returns only the rows that user may see.
   Port `visibleTo()` into `Code.gs` and have the server apply it to customer requests; the
   browser copy stays as a second line of defence.
-- [ ] **Give customers a portal URL**, e.g. `lane.html#/portal/<project>`, that opens
+- [ ] **Give customers a portal URL**, e.g. `orbit.html#/portal/<project>`, that opens
   straight into their portal with no internal app behind it.
 - [ ] **Roles and permissions:** at least Admin, Project owner, Member and Customer. Decide
   what a customer may edit; today they can change the status of their own tasks and approve.
@@ -102,10 +102,9 @@ anyone holding the token can read everything. So, before any real customer uses 
 
 ---
 
-## Phase 4 — The rest of Rocketlane
+## Phase 4 — Resourcing, money, automations, forms, reports
 
-These were left out of the first version on purpose. Each is described in
-`projects/AC Matthews/Prep/rocketlane-architecture.html` and `rocketlane-deep-dive.html`.
+These were left out of the first version on purpose.
 
 - [ ] **Resource management:**
   - allocations per person per week
@@ -125,7 +124,7 @@ These were left out of the first version on purpose. Each is described in
     template
   - starter playbooks: *Blocked → notify owner*, *Due date slipped → mark at risk*, *Phase
     done → import the next template*
-  - **Gap Rocketlane has that we should close:** an "approval overdue" trigger.
+  - also: an "approval overdue" trigger.
 - [ ] **Forms:** kick-off and hand-off forms attached to a phase. On submit, write project
   fields and create a task holding every answer.
 - [ ] **Reports:**
@@ -148,7 +147,7 @@ These were left out of the first version on purpose. Each is described in
 - [ ] **Tests for the plan rules:** dependency shifting, loop guard, phase bounds, template
   offsets and visibility. `core.js` is plain functions, so run them under Node with a tiny
   harness.
-- [ ] **A boot check in CI:** load `lane.html` in a headless browser, visit every route, and
+- [ ] **A boot check in CI:** load `orbit.html` in a headless browser, visit every route, and
   fail on any console error.
 - [ ] **Undo** for deletes and drag moves (a toast with "Undo").
 
@@ -185,6 +184,6 @@ These were left out of the first version on purpose. Each is described in
 
 ## Repo housekeeping
 
-- [ ] Turn on GitHub Pages for this repo so `lane.html` opens from a link. While all the data
+- [ ] Turn on GitHub Pages for this repo so `orbit.html` opens from a link. While all the data
   stays in each viewer's browser, this is safe to share.
 - [ ] Add a `LICENSE` once it's decided whether the repo stays private.

@@ -1,7 +1,7 @@
 /* =====================================================================
    My Day — the Day app, run unchanged in a same-origin frame so its CSS,
-   ids and key handlers can't collide with Lane's. It keeps its own storage
-   (day.* keys) and its own Sheet sync. Lane hands it a narrow bridge:
+   ids and key handlers can't collide with Orbit's. It keeps its own storage
+   (day.* keys) and its own Sheet sync. Orbit hands it a narrow bridge:
    what's due for me from projects, and three actions.
    ===================================================================== */
 let dayFrame = null;
@@ -14,7 +14,7 @@ function mountDay(){
 }
 function dayRefresh(){ try{ if(dayFrame && dayFrame.contentWindow && dayFrame.contentWindow.dayRefresh) dayFrame.contentWindow.dayRefresh(); }catch(e){} }
 
-window.LaneDay = {
+window.OrbitDay = {
   /* Project tasks assigned to me for a given day: due that day, plus anything
      overdue when the day is today, plus what I completed that day. */
   items(date, today){

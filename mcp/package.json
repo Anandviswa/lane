@@ -1,0 +1,18 @@
+{
+  "name": "orbit-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orbit tools for Claude Code: read and write Orbit through its Apps Script API.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "zod": "^4.6.5"
+  }
+}

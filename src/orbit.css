@@ -1,4 +1,4 @@
-/* Lane — light theme only. One palette, restated under both theme stamps so a
+/* Orbit — light theme only. One palette, restated under both theme stamps so a
    viewer's theme toggle cannot flip it. Type and colour come from Day, so the
    embedded My Day screen and the rest of the platform read as one product. */
 :root, :root[data-theme="dark"], :root[data-theme="light"]{

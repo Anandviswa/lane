@@ -1,9 +1,17 @@
 "use strict";
 /* =====================================================================
-   Lane — core: helpers, store, sync, domain rules
+   Orbit — core: helpers, store, sync, domain rules
    ===================================================================== */
 
-const LS_DB = "lane.db.v1", LS_SESSION = "lane.session.v1", LS_DIRTY = "lane.dirty.v1", LS_CFG = "lane.cfg.v1";
+const LS_DB = "orbit.db.v1", LS_SESSION = "orbit.session.v1", LS_DIRTY = "orbit.dirty.v1", LS_CFG = "orbit.cfg.v1";
+/* Orbit was called Lane. Carry this browser's data across once, the first
+   time Orbit opens here; the old keys are left in place. */
+(function migrateFromLane(){
+  try{
+    [["lane.db.v1", LS_DB], ["lane.session.v1", LS_SESSION], ["lane.dirty.v1", LS_DIRTY], ["lane.cfg.v1", LS_CFG], ["lane.ui", "orbit.ui"]]
+      .forEach(p => { const old = localStorage.getItem(p[0]); if(old !== null && localStorage.getItem(p[1]) === null) localStorage.setItem(p[1], old); });
+  }catch(e){}
+})();
 
 /* ---------- small helpers ---------- */
 const $ = id => document.getElementById(id);
@@ -62,9 +70,10 @@ function parseHours(v){
    Each collection becomes one Google Sheet tab in Phase 2; each field one
    column. Deletes are tombstones (deleted:true) so a sync can carry them. */
 const COLLS = ["accounts","users","projects","phases","tasks","deps","approvals","messages","files","updates",
-               "templates","time_entries","activity","notifications"];
+               "templates","time_entries","activity","notifications","decisions","agent_runs","sources"];
 const PREFIX = { accounts:"ac", users:"u", projects:"p", phases:"ph", tasks:"t", deps:"dp", approvals:"ap", messages:"m",
-                 files:"f", updates:"up", templates:"tp", time_entries:"te", activity:"av", notifications:"n" };
+                 files:"f", updates:"up", templates:"tp", time_entries:"te", activity:"av", notifications:"n",
+                 decisions:"dc", agent_runs:"ar", sources:"sr" };
 let db = null;
 
 function blankDb(){ const o = { meta:{ version:1, created_at:nowISO() } }; COLLS.forEach(c => o[c] = []); return o; }
@@ -131,8 +140,10 @@ function sync(){
       write(LS_DIRTY, read(LS_DIRTY, []).filter(k => !(k in sent) || stampOf(k) !== sent[k]));
       syncState = { kind:"ok", text:"Synced " + new Date().toTimeString().slice(0, 5) };
       if(typeof renderChrome === "function") renderChrome();
+      pull();   // pick up whatever Claude or another device wrote meanwhile
     })
-    .catch(e => { syncing = false; syncState = { kind:"warn", text:"Couldn't sync · saved here" }; console.warn("push failed", e); });
+    .catch(e => { syncing = false; syncState = { kind:"warn", text:syncError(e, "Couldn't sync · saved here") }; console.warn("push failed", e);
+      if(typeof renderChrome === "function") renderChrome(); });
 }
 function pull(){
   if(!syncConfigured()) return;
@@ -152,7 +163,30 @@ function pull(){
     cfg.lastPull = res.now || nowISO(); saveCfg(); saveDb();
     syncState = { kind:"ok", text:"Synced " + new Date().toTimeString().slice(0, 5) };
     if(typeof scheduleRender === "function") scheduleRender();
-  }).catch(e => { syncState = { kind:"warn", text:"Couldn't reach the sheet" }; console.warn("pull failed", e); });
+  }).catch(e => { syncState = { kind:"warn", text:syncError(e, "Couldn't reach the sheet") }; console.warn("pull failed", e);
+    if(typeof renderChrome === "function") renderChrome(); });
+}
+/* Plain-English sync errors (the same mapping Day uses). */
+function syncError(e, fallback){
+  const m = String(e && e.message || e || "");
+  if(/bad token/i.test(m)) return "Secret doesn't match";
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return "Can't reach that URL";
+  if(/JSON|Unexpected token/i.test(m)) return "URL isn't the /exec one";
+  if(/busy/i.test(m)) return "Sheet busy · retrying";
+  return fallback + (m && m !== "rejected" ? " · " + m.slice(0, 60) : "");
+}
+/* Connecting a device to the Sheet makes the Sheet the truth: this browser's
+   data (often the demo) is cleared and everything is pulled fresh. */
+function connectSheet(url, token){
+  cfg.url = url; cfg.token = token; cfg.lastPull = ""; saveCfg();
+  db = blankDb(); db.meta.seeded = true; db.meta.connected = nowISO();
+  /* a stand-in for you until the pull lands, so screens can draw; the Sheet's copy replaces it */
+  db.users.push({ id:"u-anand", name:"Anand Viswanathan", type:"TEAM", role:"Solution Architect", account_id:"ac-us",
+                  email:"", capacity_min:2400, status:"ACTIVE", created_at:"1970-01-01T00:00:00.000Z", updated_at:"1970-01-01T00:00:00.000Z" });
+  session.user = "u-anand"; saveSession(); saveDb();
+  write(LS_DIRTY, []);
+  syncState = { kind:"warn", text:"Connecting…" };
+  pull();
 }
 
 /* ---------- session ---------- */

@@ -1,34 +1,41 @@
-# Lane
+# Orbit
 
-**A client delivery platform: plan projects, keep customers in the loop through their own
-portal, and see your day across every project.**
+**A client delivery system you run with AI agents: plan projects, keep customers in the loop
+through their own portal, see your day across every project, and let Claude Code read and
+write all of it.**
 
-Lane is for teams that implement things for customers: software rollouts, onboarding,
+Orbit is for people who implement things for customers: software rollouts, onboarding,
 field-ops builds. Every customer project gets a plan, a health picture, a customer portal,
-and a place to talk. Every person on the team gets one view of their day across all of it.
+a decision log, and the email and call transcripts it came from. Claude Code works the same
+data through Orbit's own tools, so plans, progress, approvals and analysis all land in one
+place instead of scattered documents.
 
-It is modelled on [Rocketlane](https://www.rocketlane.com). We took Rocketlane apart in a
-trial account, kept the core, and rebuilt it. Right now it is a **single HTML file that
-saves in your browser**. A Google Sheets backend through Apps Script is next (see
-[ROADMAP.md](ROADMAP.md)).
+The app is a **single HTML file**. Its data lives in **your own Google Sheet** through a small
+Apps Script web app, so your phone, your laptop and Claude all see the same thing.
+
+| Part | Where |
+|---|---|
+| The app | `orbit.html` (built from `src/`) |
+| The backend: Google Sheet + Apps Script, Zoho mail sync | `server/` — set up with [server/DEPLOY.md](server/DEPLOY.md) |
+| Claude Code tools (MCP server) | `mcp/` |
 
 ---
 
 ## Try it
 
-**Live demo:** https://anandviswa.github.io/lane/ — each visitor gets their own copy of the demo,
+**Live demo:** https://anandviswa.github.io/orbit/ — each visitor gets their own copy of the demo,
 saved in their own browser.
 
-Or download the repo and open **`lane.html`** in Chrome. That's all there is to it.
+Or download the repo and open **`orbit.html`** in Chrome. That's all there is to it.
 
 Or serve the folder:
 
 ```bash
 python3 -m http.server 8765
-# → http://localhost:8765/lane.html
+# → http://localhost:8765/orbit.html
 ```
 
-The first load fills Lane with a demo: **Stonebridge Roofing Group**, a 13-week field-ops and
+Until you connect it to your Sheet, the first load fills Orbit with a demo: **Stonebridge Roofing Group**, a 13-week field-ops and
 estimating build with 7 overlapping phases, 55 tasks and 6 milestones. It is seeded partway
 through, so there is real work to look at: three tasks overdue, one blocked, one approval
 the customer is sitting on. The seed dates shift to today, so the demo always looks "live".
@@ -96,14 +103,14 @@ too. All of that goes through one function, `visibleTo()`.
 ## My Day = the Day app
 
 My Day is [Day](https://github.com/Anandviswa/day), the personal daily-page app, running
-**unchanged** inside Lane:
+**unchanged** inside Orbit:
 
 - It runs in a same-origin frame, so its styles and keyboard shortcuts can't clash with
-  Lane's.
+  Orbit's.
 - It keeps **its own storage and its own Google Sheet sync**, so existing Day data and setup
   keep working.
 - `build.py` adds three small, checked patches: a *From projects* section on Day's Home and
-  Today screens, and a refresh hook. The patches use a narrow bridge, `window.LaneDay`, with
+  Today screens, and a refresh hook. The patches use a narrow bridge, `window.OrbitDay`, with
   `items`, `approvals`, `complete`, `open` and `log`.
 
 To pick up a newer Day, copy its `index.html` into `day/` and rebuild. If a patch no longer
@@ -114,10 +121,10 @@ matches, the build stops instead of shipping something half-patched.
 ## How it's built
 
 ```
-lane.html          ← the app. Generated — don't edit by hand.
-build.py           ← assembles lane.html from src/ + day/
+orbit.html          ← the app. Generated — don't edit by hand.
+build.py           ← assembles orbit.html from src/ + day/
 src/
-  lane.css         styles (light theme; Day's type and palette)
+  orbit.css        styles (light theme; Day's type and palette)
   shell.html       app frame: rail, top bar, drawer, modal hosts
   core.js          helpers, record store, sync, visibility, plan rules
   seed.js          Stonebridge demo data
@@ -125,9 +132,19 @@ src/
   project.js       project tabs + task drawer
   views.js         home, accounts, projects, wizard, tasks, templates, timesheets, settings
   portal.js        customer portal
-  daybridge.js     mounts Day, exposes window.LaneDay
+  daybridge.js     mounts Day, exposes window.OrbitDay
   app.js           boot
 day/index.html     Day, vendored from github.com/Anandviswa/day
+server/
+  Code.gs          the Sheet backend: save / all, auth, locking, setup(), selfTest()
+  Mail.gs          Zoho mail → Drive + `sources`, transcripts and notes
+  DEPLOY.md        the one-time setup, step by step
+  test/            Node tests that run Code.gs + Mail.gs on an in-memory mock
+mcp/
+  server.js        the Orbit MCP server (19 tools for Claude Code)
+  lib/engine.js    runs src/core.js in Node, so Claude follows the app's own rules
+  lib/tools.js     what each tool does
+  test/            smoke test against a live Orbit
 ```
 
 To change something, edit `src/` and run `python3 build.py`. The stack is plain JavaScript:
@@ -135,13 +152,13 @@ no framework, no npm, no build tools beyond that one Python script. Fonts come f
 Fonts.
 
 **Data.** Every record is a flat row with `id`, `created_at`, `updated_at` and `deleted`
-(deletes are tombstones). Rows sit in 14 collections: accounts, users, projects, phases,
-tasks, deps, approvals, messages, files, updates, templates, time_entries, activity and
-notifications. Each collection maps one-to-one to a Google Sheet tab in Phase 2. The browser
-half of sync is already written (Day's proven pattern: a dirty queue, a push guarded against
-mid-flight edits, a pull that keeps whichever copy is newer, with unsynced local edits
-winning). It stays off until a server URL is set in Settings. The column list for every tab
-and the request formats are in [ROADMAP.md](ROADMAP.md#phase-2--google-sheets-backend).
+(deletes are tombstones). Rows sit in 17 collections: accounts, users, projects, phases,
+tasks, deps, approvals, messages, files, updates, templates, time_entries, activity,
+notifications, decisions, agent_runs and sources. Each collection is one tab in your Sheet.
+Sync uses Day's proven pattern: a dirty queue, a push guarded against mid-flight edits, a
+pull every 45 seconds that keeps whichever copy is newer, with unsynced local edits winning.
+The server refuses a write older than what it already holds. Long text (emails,
+transcripts) lives as files in a Drive folder; the Sheet keeps a row pointing to each.
 
 ---
 
@@ -150,21 +167,18 @@ and the request formats are in [ROADMAP.md](ROADMAP.md#phase-2--google-sheets-ba
 - **No real login.** The avatar menu switches who you're acting as, and "View as customer"
   previews the portal. The customer-privacy rules are enforced in the browser only, which is
   fine for a demo and not fine for real customers. Fixing that is Phase 3.
-- **Data lives in one browser** until Phase 2. Use **Settings → Export / Import JSON** to
-  move it between browsers.
+- **One person's Sheet.** The backend has one shared secret, so anyone holding it can read
+  everything. Keep it private. Real per-user sign-in is Phase 3.
 - **Not built yet:** resource management, financials, the automation builder, forms and
   reports. See the roadmap.
 
 ---
 
-## Where it came from
-
-The design comes from a hands-on teardown of Rocketlane: its public API spec plus a trial
-account worked through a full 13-week implementation. The pieces kept are the ones that
-carry the product:
+## The ideas it's built on
 - the project → phase → task spine
 - dependency-driven dates
 - the three-sided project (your team, the customer, partners)
 - private vs shared at every level
 - templates that turn dates into offsets and people into roles
 - a customer portal that's its own experience
+- every plan, decision and approval in one place an AI agent can read and write

@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lane</title>
+<title>Orbit</title>
 <meta name="description" content="Client delivery platform — projects, plans, customer portal, timesheets, and My Day.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Lane — light theme only. One palette, restated under both theme stamps so a
+/* Orbit — light theme only. One palette, restated under both theme stamps so a
    viewer's theme toggle cannot flip it. Type and colour come from Day, so the
    embedded My Day screen and the rest of the platform read as one product. */
 :root, :root[data-theme="dark"], :root[data-theme="light"]{
@@ -484,7 +484,7 @@ button.tile:hover{border-color:var(--line)}
 <!-- Built by build.py from src/ — edit the sources, not this file. -->
 <div id="ln-app">
   <nav id="ln-rail" aria-label="Main">
-    <a class="brandmark" href="#/home" title="Lane">L</a>
+    <a class="brandmark" href="#/home" title="Orbit">O</a>
     <div id="ln-raillinks" style="display:contents"></div>
     <div class="rl-sp"></div>
     <a class="rl-a" href="#/settings" data-r="settings" id="ln-railsettings"></a>
@@ -1033,14 +1033,14 @@ button{font-family:inherit}
 .msum .val{font-family:var(--display);font-size:24px;font-weight:300;line-height:1}
 .msum .val.over{color:#9A3B3B}
 
-/* ---- Lane bridge: "From projects" ---- */
-.lane .tk .proj{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.02em}
-.lane .tk .late{color:#9A3B3B}
-.lane .tk .go{background:none;border:0;color:var(--faint);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:2px 5px;flex:none}
-.lane .tk .go:hover{color:var(--text)}
-.lane .tk .logt{width:74px;background:var(--surf);border:1px solid var(--edge);border-radius:8px;font-family:var(--mono);font-size:11px;padding:4px 6px;color:var(--text)}
-.lane .tk .ms{color:#7457A6;font-size:12px;margin-right:4px}
-.lane .appr .chk{border-color:var(--gold);background:var(--gold-soft)}
+/* ---- Orbit bridge: "From projects" ---- */
+.orbit .tk .proj{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.02em}
+.orbit .tk .late{color:#9A3B3B}
+.orbit .tk .go{background:none;border:0;color:var(--faint);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:2px 5px;flex:none}
+.orbit .tk .go:hover{color:var(--text)}
+.orbit .tk .logt{width:74px;background:var(--surf);border:1px solid var(--edge);border-radius:8px;font-family:var(--mono);font-size:11px;padding:4px 6px;color:var(--text)}
+.orbit .tk .ms{color:#7457A6;font-size:12px;margin-right:4px}
+.orbit .appr .chk{border-color:var(--gold);background:var(--gold-soft)}
 </style>
 </head>
 <body>
@@ -1101,7 +1101,7 @@ button{font-family:inherit}
     </div>
     <div class="hero" id="hero"></div>
     <div class="tiles" id="tiles"></div>
-    <section class="sec" id="laneHome"></section>
+    <section class="sec" id="orbitHome"></section>
 
     <section class="sec">
       <div class="sec-head"><h2>Open today</h2><div class="rule"></div><span class="meta" id="openMeta"></span></div>
@@ -1132,7 +1132,7 @@ button{font-family:inherit}
       <div class="moodrow"><div class="dots" id="dots"></div><span class="moodword" id="moodWord"></span></div>
     </section>
 
-    <section class="sec" id="laneToday"></section>
+    <section class="sec" id="orbitToday"></section>
 
     <section class="sec">
       <div class="sec-head"><h2>Tasks</h2><div class="rule"></div><span class="meta" id="tMeta"></span></div>
@@ -2863,7 +2863,7 @@ function setView(v){
   renderAll();
 }
 function renderAll(){
-  renderHeader(); renderRibbon(); renderLane();
+  renderHeader(); renderRibbon(); renderOrbit();
   if(state.view==="home") renderHome();
   else if(state.view==="today"){ renderPrompt(); renderMood(); renderTasks(); renderRoutine(); renderJournal(); renderAte(); renderNotes(); }
   else if(state.view==="calendar") renderCalendar();
@@ -3288,20 +3288,20 @@ document.addEventListener("visibilitychange",function(){
 setInterval(function(){ renderRibbon(); if(state.view==="home") renderHome(); if(state.view==="today") renderRoutine(); },60000);
 
 
-/* ============ Lane bridge ============
-   When Day runs inside Lane, show the project work assigned to you for the
-   day being viewed, and approvals waiting on you. Outside Lane this is a no-op. */
-var laneLogOpen = null;
-function laneApi(){ try{ return (window.parent && window.parent !== window && window.parent.LaneDay) || null; }catch(e){ return null; } }
-function renderLane(){
-  var L = laneApi();
-  [["laneHome", today()], ["laneToday", state.date]].forEach(function(b){
+/* ============ Orbit bridge ============
+   When Day runs inside Orbit, show the project work assigned to you for the
+   day being viewed, and approvals waiting on you. Outside Orbit this is a no-op. */
+var orbitLogOpen = null;
+function orbitApi(){ try{ return (window.parent && window.parent !== window && window.parent.OrbitDay) || null; }catch(e){ return null; } }
+function renderOrbit(){
+  var L = orbitApi();
+  [["orbitHome", today()], ["orbitToday", state.date]].forEach(function(b){
     var box = $(b[0]); if(!box) return;
     box.innerHTML = "";
     if(!L){ box.style.display = "none"; return; }
     var items = L.items(b[1], today()), aps = b[1] === today() ? L.approvals() : [];
     var open = items.filter(function(x){ return !x.done; }).length;
-    box.className = "sec lane";
+    box.className = "sec orbit";
     var head = el("div", "sec-head");
     head.appendChild(el("h2", null, "From projects"));
     head.appendChild(el("div", "rule"));
@@ -3322,20 +3322,20 @@ function renderLane(){
       var li = el("li", "tk" + (x.done ? " done" : ""));
       var c = el("button", "chk"); c.innerHTML = tick();
       c.setAttribute("aria-label", (x.done ? "Reopen: " : "Complete: ") + x.title);
-      c.addEventListener("click", function(){ L.complete(x.id, !x.done); renderLane(); });
+      c.addEventListener("click", function(){ L.complete(x.id, !x.done); renderOrbit(); });
       var tt = el("div", "tt");
       var tl = el("div", "tl"); if(x.milestone) tl.appendChild(el("span", "ms", "◆")); tl.appendChild(document.createTextNode(x.title)); tt.appendChild(tl);
       tt.appendChild(el("div", "proj" + (x.late ? " late" : ""), x.project + (x.late ? " · " + x.late + "d overdue" : "") + (x.status === "Blocked" ? " · blocked" : "")));
       li.appendChild(c); li.appendChild(tt);
-      if(laneLogOpen === x.id){
+      if(orbitLogOpen === x.id){
         var inp = el("input", "logt"); inp.placeholder = "1:30"; inp.title = "Hours — Enter to log";
         inp.addEventListener("keydown", function(e){
-          if(e.key === "Enter"){ var r = L.log(x.id, inp.value, b[1]); laneLogOpen = null; renderLane(); if(r) setStatus("ok", "Logged " + r + " on " + x.title); }
-          if(e.key === "Escape"){ laneLogOpen = null; renderLane(); }
+          if(e.key === "Enter"){ var r = L.log(x.id, inp.value, b[1]); orbitLogOpen = null; renderOrbit(); if(r) setStatus("ok", "Logged " + r + " on " + x.title); }
+          if(e.key === "Escape"){ orbitLogOpen = null; renderOrbit(); }
         });
         li.appendChild(inp); setTimeout(function(){ inp.focus(); }, 0);
       } else if(!x.done){
-        var lg = el("button", "go", "+ time"); lg.addEventListener("click", function(){ laneLogOpen = x.id; renderLane(); });
+        var lg = el("button", "go", "+ time"); lg.addEventListener("click", function(){ orbitLogOpen = x.id; renderOrbit(); });
         li.appendChild(lg);
       }
       var go = el("button", "go", "Open ↗"); go.addEventListener("click", function(){ L.open(x.id); });
@@ -3363,10 +3363,18 @@ else setStatus("","Not connected","Set up sync");
 <script>
 "use strict";
 /* =====================================================================
-   Lane — core: helpers, store, sync, domain rules
+   Orbit — core: helpers, store, sync, domain rules
    ===================================================================== */
 
-const LS_DB = "lane.db.v1", LS_SESSION = "lane.session.v1", LS_DIRTY = "lane.dirty.v1", LS_CFG = "lane.cfg.v1";
+const LS_DB = "orbit.db.v1", LS_SESSION = "orbit.session.v1", LS_DIRTY = "orbit.dirty.v1", LS_CFG = "orbit.cfg.v1";
+/* Orbit was called Lane. Carry this browser's data across once, the first
+   time Orbit opens here; the old keys are left in place. */
+(function migrateFromLane(){
+  try{
+    [["lane.db.v1", LS_DB], ["lane.session.v1", LS_SESSION], ["lane.dirty.v1", LS_DIRTY], ["lane.cfg.v1", LS_CFG], ["lane.ui", "orbit.ui"]]
+      .forEach(p => { const old = localStorage.getItem(p[0]); if(old !== null && localStorage.getItem(p[1]) === null) localStorage.setItem(p[1], old); });
+  }catch(e){}
+})();
 
 /* ---------- small helpers ---------- */
 const $ = id => document.getElementById(id);
@@ -3425,9 +3433,10 @@ function parseHours(v){
    Each collection becomes one Google Sheet tab in Phase 2; each field one
    column. Deletes are tombstones (deleted:true) so a sync can carry them. */
 const COLLS = ["accounts","users","projects","phases","tasks","deps","approvals","messages","files","updates",
-               "templates","time_entries","activity","notifications"];
+               "templates","time_entries","activity","notifications","decisions","agent_runs","sources"];
 const PREFIX = { accounts:"ac", users:"u", projects:"p", phases:"ph", tasks:"t", deps:"dp", approvals:"ap", messages:"m",
-                 files:"f", updates:"up", templates:"tp", time_entries:"te", activity:"av", notifications:"n" };
+                 files:"f", updates:"up", templates:"tp", time_entries:"te", activity:"av", notifications:"n",
+                 decisions:"dc", agent_runs:"ar", sources:"sr" };
 let db = null;
 
 function blankDb(){ const o = { meta:{ version:1, created_at:nowISO() } }; COLLS.forEach(c => o[c] = []); return o; }
@@ -3494,8 +3503,10 @@ function sync(){
       write(LS_DIRTY, read(LS_DIRTY, []).filter(k => !(k in sent) || stampOf(k) !== sent[k]));
       syncState = { kind:"ok", text:"Synced " + new Date().toTimeString().slice(0, 5) };
       if(typeof renderChrome === "function") renderChrome();
+      pull();   // pick up whatever Claude or another device wrote meanwhile
     })
-    .catch(e => { syncing = false; syncState = { kind:"warn", text:"Couldn't sync · saved here" }; console.warn("push failed", e); });
+    .catch(e => { syncing = false; syncState = { kind:"warn", text:syncError(e, "Couldn't sync · saved here") }; console.warn("push failed", e);
+      if(typeof renderChrome === "function") renderChrome(); });
 }
 function pull(){
   if(!syncConfigured()) return;
@@ -3515,7 +3526,30 @@ function pull(){
     cfg.lastPull = res.now || nowISO(); saveCfg(); saveDb();
     syncState = { kind:"ok", text:"Synced " + new Date().toTimeString().slice(0, 5) };
     if(typeof scheduleRender === "function") scheduleRender();
-  }).catch(e => { syncState = { kind:"warn", text:"Couldn't reach the sheet" }; console.warn("pull failed", e); });
+  }).catch(e => { syncState = { kind:"warn", text:syncError(e, "Couldn't reach the sheet") }; console.warn("pull failed", e);
+    if(typeof renderChrome === "function") renderChrome(); });
+}
+/* Plain-English sync errors (the same mapping Day uses). */
+function syncError(e, fallback){
+  const m = String(e && e.message || e || "");
+  if(/bad token/i.test(m)) return "Secret doesn't match";
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return "Can't reach that URL";
+  if(/JSON|Unexpected token/i.test(m)) return "URL isn't the /exec one";
+  if(/busy/i.test(m)) return "Sheet busy · retrying";
+  return fallback + (m && m !== "rejected" ? " · " + m.slice(0, 60) : "");
+}
+/* Connecting a device to the Sheet makes the Sheet the truth: this browser's
+   data (often the demo) is cleared and everything is pulled fresh. */
+function connectSheet(url, token){
+  cfg.url = url; cfg.token = token; cfg.lastPull = ""; saveCfg();
+  db = blankDb(); db.meta.seeded = true; db.meta.connected = nowISO();
+  /* a stand-in for you until the pull lands, so screens can draw; the Sheet's copy replaces it */
+  db.users.push({ id:"u-anand", name:"Anand Viswanathan", type:"TEAM", role:"Solution Architect", account_id:"ac-us",
+                  email:"", capacity_min:2400, status:"ACTIVE", created_at:"1970-01-01T00:00:00.000Z", updated_at:"1970-01-01T00:00:00.000Z" });
+  session.user = "u-anand"; saveSession(); saveDb();
+  write(LS_DIRTY, []);
+  syncState = { kind:"warn", text:"Connecting…" };
+  pull();
 }
 
 /* ---------- session ---------- */
@@ -3727,8 +3761,8 @@ function logTime(taskId, date, minutes, notes, billable){
 }
 
 /* =====================================================================
-   Seed — the Stonebridge Roofing implementation from the Rocketlane trial
-   (fds-prep §4): 7 overlapping phases, 55 tasks, 6 milestones. Dates are
+   Seed — a sample roofing implementation (Stonebridge Roofing Group):
+   7 overlapping phases, 55 tasks, 6 milestones. Dates are
    anchored to 1 Oct 2026 and shifted to today, so the demo always opens
    partway through the project, the way a real one looks on a Tuesday.
    ===================================================================== */
@@ -4315,8 +4349,8 @@ $("ln-scrim").addEventListener("click", closeTaskDrawer);
    ===================================================================== */
 
 /* Per-viewer conveniences only (remembered toggles). Never data. */
-let ui = Object.assign({ planMode:"board", who:"all", showDone:true, zoom:"week", q:"" }, read("lane.ui", {}));
-function setUi(p){ Object.assign(ui, p); write("lane.ui", ui); scheduleRender(); }
+let ui = Object.assign({ planMode:"board", who:"all", showDone:true, zoom:"week", q:"" }, read("orbit.ui", {}));
+function setUi(p){ Object.assign(ui, p); write("orbit.ui", ui); scheduleRender(); }
 
 function projectHeader(p, tab){
   const a = byId("accounts", p.account_id) || {}, hl = health(p.id);
@@ -4448,7 +4482,7 @@ function planBar(p){
   return h("div", { class:"planbar" },
     segm([["board","Board","board"],["gantt","Gantt","gantt"]], ui.planMode, v => setUi({ planMode:v })),
     segm([["all","All"],["team","Our team"],["customer","Customer"],["mine","Mine"]], ui.who, v => setUi({ who:v })),
-    h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("lane.ui", ui); scheduleRender(); } }),
+    h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("orbit.ui", ui); scheduleRender(); } }),
     h("label", { class:"chk-l" }, h("input", { type:"checkbox", checked:ui.showDone, onchange:e => setUi({ showDone:e.target.checked }) }), "Show completed"),
     h("span", { class:"grow" }),
     ui.planMode === "gantt" ? segm([["day","Days"],["week","Weeks"],["month","Months"]], ui.zoom, v => setUi({ zoom:v })) : null,
@@ -4670,7 +4704,7 @@ function tabList(p, r){
   return [
     h("div", { class:"filters" },
       segm([["","All"],["open","Open"],["mine","Mine"],["overdue","Overdue"],["atrisk","At risk"],["blocked","Blocked"],["done","Completed"]], f, v => go("projects/" + p.id + "/list", v ? { f:v } : null)),
-      h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("lane.ui", ui); scheduleRender(); } }),
+      h("input", { class:"inp", style:"width:200px", placeholder:"Filter tasks", value:ui.q, oninput:e => { ui.q = e.target.value; write("orbit.ui", ui); scheduleRender(); } }),
       h("span", { style:"flex:1" }),
       h("button", { class:"btn primary", onclick:() => quickTaskModal({ project_id:p.id }) }, icon("plus", "sm"), "New task")),
     h("div", { class:"card" }, h("div", { class:"tbl-wrap" }, h("table", { class:"tbl" },
@@ -4971,6 +5005,16 @@ function drawerBody(t, viewer, portal){
         canEdit ? prop("Flags", "flag", [h("label", { class:"chk-l" }, h("input", { type:"checkbox", checked:!!t.at_risk, onchange:e => { update("tasks", t.id, { at_risk:e.target.checked }); logAct(p.id, t.id, (e.target.checked ? "marked “" : "cleared at-risk on “") + t.name + (e.target.checked ? "” at risk" : "”")); commit(); } }), "At risk"),
           h("label", { class:"chk-l", title:"Private tasks are hidden from the customer" }, h("input", { type:"checkbox", checked:!!t.private, onchange:e => { update("tasks", t.id, { private:e.target.checked }); commit(); } }), icon("lock", "xs"), "Private")]) : null),
 
+      /* Orbit: who does the work, and how far an agent may go (set by Claude's plans; editable here) */
+      (canEdit && !portal) ? h("div", { class:"props" },
+        prop("Doer", "users", [sel([["anand","Me"],["claude","Claude"]], t.doer || "anand", v => { update("tasks", t.id, { doer:v }); commit(); }),
+          t.kind ? h("span", { class:"faint", style:"margin-left:8px" }, t.kind.replace(/_/g, " ")) : null]),
+        t.doer === "claude" ? prop("Claude may", "flag", sel([["draft","Draft only"],["do","Do it"],["do_then_ask","Do it, ask before anything live"]], t.autonomy || "draft",
+          v => { update("tasks", t.id, { autonomy:v }); commit(); })) : null,
+        t.app_ref ? prop("App", "board", h("span", { class:"mono", style:"font-size:12px" }, t.app_ref)) : null,
+        t.source_ref ? prop("Source", "chat", h("span", { style:"font-size:12.5px" }, t.source_ref)) : null) : null,
+      (t.agent_brief && !portal) ? sec("Brief for Claude") : null,
+      (t.agent_brief && !portal) ? h("pre", { class:"mono", style:"white-space:pre-wrap;font-size:12px;background:var(--surf2,#f6f6f4);border-radius:8px;padding:10px 12px;margin:0 0 12px" }, t.agent_brief) : null,
       sec("Description"),
       canEdit ? richEditor(t.description, v => { if(v !== (byId("tasks", t.id) || {}).description){ update("tasks", t.id, { description:v }); saveDb(); } }, { placeholder:"Add details, a checklist, links…" })
         : h("div", { class:"rich", html:cleanHTML(t.description) || "<p class='faint'>No description.</p>" }),
@@ -5500,17 +5544,22 @@ function approveView(ws, we){
 function viewSettings(){
   crumbs = [["Settings"]];
   const url = h("input", { class:"inp mono", style:"font-size:12px", placeholder:"https://script.google.com/macros/s/…/exec", value:cfg.url });
-  const tok = h("input", { class:"inp mono", style:"font-size:12px", placeholder:"same string as SECRET in Code.gs", value:cfg.token });
+  const tok = h("input", { class:"inp mono", style:"font-size:12px", placeholder:"orb_… (printed by setup() in Apps Script)", type:"password", autocomplete:"off", value:cfg.token });
   const dirty = read(LS_DIRTY, []).length;
   const counts = COLLS.map(c => [c, rows(c).length]);
   return h("div", { class:"page" },
     pageHead("Workspace", "Settings", null),
     h("div", { class:"grid g2" },
       card("Google Sheets sync", syncConfigured() ? syncState.text : "Off", [
-        h("p", { class:"sub", style:"margin-bottom:12px" }, "Everything saves to this browser first. Once an Apps Script web app is deployed (Phase 2), paste its URL here and every change is pushed to a Google Sheet — one tab per record type — and pulled back on other devices."),
+        h("p", { class:"sub", style:"margin-bottom:12px" }, "Everything saves to this browser first, then syncs to your Orbit Google Sheet, so your phone, your Mac and Claude all see the same data. Paste the web app URL and the secret that setup() printed."),
         h("div", { class:"fld" }, h("label", null, "Apps Script web app URL"), url, h("div", { class:"hint" }, "Ends in /exec. Deploy → New deployment → Web app, execute as Me, access Anyone.")),
         h("div", { class:"fld" }, h("label", null, "Shared secret"), tok),
-        h("div", { class:"acts" }, h("button", { class:"btn primary", onclick:() => { cfg.url = url.value.trim(); cfg.token = tok.value.trim(); saveCfg(); if(syncConfigured()){ sync(); toast("Saved — syncing"); } else toast("Sync turned off"); render(); } }, "Save"),
+        h("div", { class:"acts" }, h("button", { class:"btn primary", onclick:() => {
+            const u = url.value.trim(), k = tok.value.trim();
+            if(!u || !k){ cfg.url = u; cfg.token = k; saveCfg(); toast("Sync turned off"); render(); return; }
+            if(syncConfigured() && u === cfg.url){ cfg.token = k; saveCfg(); sync(); toast("Saved — syncing"); render(); return; }
+            confirmBox("Connect this device to the Sheet?", "Everything in this browser is replaced by what's in the Sheet. Changes made here that never synced are lost. My Day is not touched.", "Connect",
+              () => { connectSheet(u, k); go("home"); toast("Connecting — loading from the Sheet"); }, true); } }, syncConfigured() ? "Save" : "Connect"),
           syncConfigured() ? h("button", { class:"btn", onclick:() => { sync(); pull(); toast("Syncing…"); } }, "Sync now") : null,
           h("span", { class:"faint", style:"font-size:12px" }, plural(dirty, "change") + " waiting to sync"))]),
       card("Data in this browser", null, [
@@ -5520,7 +5569,7 @@ function viewSettings(){
           h("label", { class:"btn" }, "Import JSON", h("input", { type:"file", accept:".json,application/json", hidden:true, onchange:e => importJson(e.target.files[0]) })),
           h("button", { class:"btn danger", onclick:() => confirmBox("Reset to the demo data?", "Replaces every project, task and message in this browser with the Stonebridge demo. My Day is not touched.", "Reset",
             () => { seedDb(); write(LS_DIRTY, []); commit(); go("home"); toast("Demo data restored"); }, true) }, "Reset demo data"))]),
-      card("My Day", null, [h("p", { class:"sub" }, "My Day is the Day app, running inside Lane. Its mood, routine, journal and personal tasks stay in its own storage and keep its own Google Sheet sync — set that up from My Day → Settings. Project tasks assigned to you and approvals waiting on you show up in its Today and Home screens.")]),
+      card("My Day", null, [h("p", { class:"sub" }, "My Day is the Day app, running inside Orbit. Its mood, routine, journal and personal tasks stay in its own storage and keep its own Google Sheet sync — set that up from My Day → Settings. Project tasks assigned to you and approvals waiting on you show up in its Today and Home screens.")]),
       card("Team", plural(rows("users", u => u.type === "TEAM").length, "person", "people"), [
         rows("users", u => u.type === "TEAM").map(u => h("div", { style:"margin-bottom:9px" }, whoRow(u, u.role + " · " + (u.email || "")))),
         h("button", { class:"btn sm", onclick:() => { openModal(() => {
@@ -5532,12 +5581,12 @@ function viewSettings(){
 }
 function exportJson(){
   const blob = new Blob([JSON.stringify(db, null, 1)], { type:"application/json" });
-  const a = h("a", { href:URL.createObjectURL(blob), download:"lane-export-" + todayISO() + ".json" }); document.body.appendChild(a); a.click(); a.remove();
+  const a = h("a", { href:URL.createObjectURL(blob), download:"orbit-export-" + todayISO() + ".json" }); document.body.appendChild(a); a.click(); a.remove();
 }
 function importJson(file){
   if(!file) return;
   const fr = new FileReader();
-  fr.onload = () => { try{ const d = JSON.parse(fr.result); if(!d || !Array.isArray(d.projects)) throw new Error("not a Lane export");
+  fr.onload = () => { try{ const d = JSON.parse(fr.result); if(!d || !Array.isArray(d.projects)) throw new Error("not a Orbit export");
     COLLS.forEach(c => d[c] = d[c] || []); db = d; saveDb(); COLLS.forEach(c => db[c].forEach(r => markDirty(c, r.id))); commit(); toast("Imported"); }
     catch(e){ toast("Couldn't import: " + e.message); } };
   fr.readAsText(file);
@@ -5657,8 +5706,8 @@ function ptActions(p, v, actions, myOpen){
 
 /* =====================================================================
    My Day — the Day app, run unchanged in a same-origin frame so its CSS,
-   ids and key handlers can't collide with Lane's. It keeps its own storage
-   (day.* keys) and its own Sheet sync. Lane hands it a narrow bridge:
+   ids and key handlers can't collide with Orbit's. It keeps its own storage
+   (day.* keys) and its own Sheet sync. Orbit hands it a narrow bridge:
    what's due for me from projects, and three actions.
    ===================================================================== */
 let dayFrame = null;
@@ -5671,7 +5720,7 @@ function mountDay(){
 }
 function dayRefresh(){ try{ if(dayFrame && dayFrame.contentWindow && dayFrame.contentWindow.dayRefresh) dayFrame.contentWindow.dayRefresh(); }catch(e){} }
 
-window.LaneDay = {
+window.OrbitDay = {
   /* Project tasks assigned to me for a given day: due that day, plus anything
      overdue when the day is today, plus what I completed that day. */
   items(date, today){
@@ -5716,6 +5765,8 @@ window.LaneDay = {
   /* Another tab saved — pick it up. */
   window.addEventListener("storage", e => { if(e.key === LS_DB){ db = loadDb() || db; scheduleRender(); } });
   setInterval(() => { if(!typing()) scheduleRender(); }, 60000);
+  /* Pick up what Claude and other devices wrote, while this tab is in view. */
+  setInterval(() => { if(syncConfigured() && document.visibilityState === "visible" && !syncing) sync(); }, 45000);
 })();
 
 </script>

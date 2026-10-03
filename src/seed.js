@@ -1,6 +1,6 @@
 /* =====================================================================
-   Seed — the Stonebridge Roofing implementation from the Rocketlane trial
-   (fds-prep §4): 7 overlapping phases, 55 tasks, 6 milestones. Dates are
+   Seed — a sample roofing implementation (Stonebridge Roofing Group):
+   7 overlapping phases, 55 tasks, 6 milestones. Dates are
    anchored to 1 Oct 2026 and shifted to today, so the demo always opens
    partway through the project, the way a real one looks on a Tuesday.
    ===================================================================== */
