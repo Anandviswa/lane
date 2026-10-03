@@ -11,6 +11,7 @@ function projectHeader(p, tab){
   const a = byId("accounts", p.account_id) || {}, hl = health(p.id);
   const tabs = [["overview","Overview","overview"],["plan","Plan","board"],["list","List","list"],
     ["chat","Chat","chat", rows("messages", m => m.project_id === p.id).length],
+    ["mail","Mail & calls","mail", rows("sources", s => s.project_id === p.id).length],
     ["files","Files","file", rows("files", f => f.project_id === p.id).length],
     ["updates","Updates","megaphone"],["settings","Settings","sliders"]];
   return [
@@ -40,7 +41,7 @@ function viewProject(r){
   if(!p) return h("div", { class:"page" }, empty("That project doesn't exist any more."));
   const tab = r.parts[2] || "overview", a = byId("accounts", p.account_id) || {};
   crumbs = [["Projects", "#/projects"], [a.name, "#/accounts/" + a.id], [p.name]];
-  const body = ({ overview:tabOverview, plan:tabPlan, list:tabList, chat:tabChat, files:tabFiles, updates:tabUpdates, settings:tabSettings }[tab] || tabOverview)(p, r);
+  const body = ({ overview:tabOverview, plan:tabPlan, list:tabList, chat:tabChat, mail:tabMail, files:tabFiles, updates:tabUpdates, settings:tabSettings }[tab] || tabOverview)(p, r);
   return h("div", { class:"page" + (tab === "plan" ? " wide" : "") }, projectHeader(p, tab), body);
 }
 
@@ -537,6 +538,47 @@ function sourceModal(src){
     .then(r => r.json()).then(res => { if(!res || !res.ok) throw new Error(res && res.error || "rejected"); text = readable(res.text); redraw(); })
     .catch(e => { err = syncError(e, "error"); redraw(); });
 }
+/* ---------------- Mail & calls: the client emails and call transcripts filed to this project ---------------- */
+let mailUi = { f:"all", q:"" };
+function tabMail(p){
+  const all = rows("sources", s => s.project_id === p.id);
+  const rules = (p.mail_match || []).concat(((byId("accounts", p.account_id) || {}).domain || "").split(/[,\s]+/).filter(Boolean).map(d => d + " (account)"));
+  const n = k => all.filter(s => k === "email" ? s.kind === "email" : k === "call" ? s.kind !== "email" : k === "new" ? !s.processed_at : true).length;
+  const list = all.filter(s => mailUi.f === "email" ? s.kind === "email" : mailUi.f === "call" ? s.kind !== "email" : mailUi.f === "new" ? !s.processed_at : true)
+    .filter(s => !mailUi.q || [s.subject, s.from, s.to, s.summary, s.people].join(" ").toLowerCase().indexOf(mailUi.q.toLowerCase()) > -1);
+  const chip = (k, label) => h("button", { class:"btn sm" + (mailUi.f === k ? " primary" : ""), onclick:() => { mailUi.f = k; scheduleRender(); } }, label + " · " + n(k));
+  return [
+    h("div", { class:"filters" }, chip("all", "All"), chip("email", "Emails"), chip("call", "Calls & notes"), chip("new", "Not processed"),
+      h("input", { class:"inp", style:"width:220px", placeholder:"Search subject, people…", value:mailUi.q, oninput:e => { mailUi.q = e.target.value; scheduleRender(); } }),
+      h("span", { class:"grow" }),
+      h("span", { class:"faint", style:"font-size:12px" }, rules.length ? "Files mail from: " + rules.join(", ") : "No client addresses set — "),
+      h("a", { href:"#/projects/" + p.id + "/settings", class:"btn sm" }, icon("sliders", "sm"), "Client email")),
+    !syncConfigured() ? h("div", { class:"note-box" }, "Connect this device to your Orbit Sheet (Settings) to see mail.") : null,
+    h("div", { class:"card" }, sourceList(list, { move:true, empty:all.length ? "Nothing matches." : "No mail or calls filed here yet. New client mail arrives every 15 minutes." }))];
+}
+/* One row per email / transcript / note: direction, when, who, subject + summary, processed state. */
+function sourceList(list, opts){
+  opts = opts || {};
+  if(!list.length) return empty(opts.empty || "Nothing here.");
+  const projects = rows("projects", x => !x.archived).sort(by(x => x.name));
+  return h("table", { class:"tbl" },
+    h("thead", null, h("tr", null, h("th", null, ""), h("th", null, "When"), h("th", null, "From / to"), h("th", null, "Subject"), opts.project ? h("th", null, "Project") : null, h("th", null, ""), opts.move ? h("th", null, "") : null)),
+    h("tbody", null, list.slice().sort(by(s => s.occurred_at || "")).reverse().map(s => {
+      const who = s.kind !== "email" ? (s.people || "") : s.direction === "out" ? "to " + String(s.to || "").replace(/"?([^"<]*)"?\s*<[^>]*>/g, "$1").slice(0, 60) : String(s.from || "").replace(/"?([^"<]*)"?\s*<[^>]*>/g, "$1").slice(0, 60);
+      const kindIc = s.kind === "email" ? (s.direction === "out" ? "send" : "mail") : "chat";
+      return h("tr", { style:"cursor:pointer", onclick:e => { if(e.target.closest("select,button")) return; sourceModal(s); } },
+        h("td", { style:"width:28px" }, h("span", { title:s.kind === "email" ? (s.direction === "out" ? "Sent" : "Received") : s.kind }, icon(kindIc, "sm"))),
+        h("td", { class:"mono faint", style:"font-size:11.5px;white-space:nowrap" }, s.occurred_at ? fmtD(String(s.occurred_at).slice(0, 10)) + " " + String(s.occurred_at).slice(11, 16) : ""),
+        h("td", { style:"font-size:12.5px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" }, who),
+        h("td", null, h("div", { style:"font-weight:500" }, s.subject || "(no subject)"),
+          s.summary ? h("div", { class:"faint", style:"font-size:11.5px;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" }, s.summary) : null),
+        opts.project ? h("td", { style:"font-size:12.5px" }, (byId("projects", s.project_id) || {}).name || "—") : null,
+        h("td", null, s.processed_at ? h("span", { class:"chip jade" }, "Processed") : h("span", { class:"chip" }, "New")),
+        opts.move ? h("td", null, sel([["", "Move to project…"]].concat(projects.map(x => [x.id, x.name])), "", v => {
+          if(!v) return; const pr = byId("projects", v);
+          update("sources", s.id, { project_id:v, account_id:pr.account_id }); commit(); toast("Filed to " + pr.name); })) : null);
+    })));
+}
 function fileModal(p, kind, viewer){
   viewer = viewer || me();
   openModal(() => {
@@ -618,6 +660,12 @@ function tabSettings(p){
           fld("ARR ($)", h("input", { class:"inp", type:"number", value:(p.fields || {}).arr || "", onchange:e => setF("arr", +e.target.value || 0) }))),
         h("div", { class:"row" }, fld("Budget hours", h("input", { class:"inp", type:"number", value:(p.fields || {}).budget_hours || "", onchange:e => setF("budget_hours", +e.target.value || 0) })),
           fld("Billing", sel(["Fixed fee","Time & material","Subscription","Non-billable"], (p.fields || {}).billing || "Fixed fee", v => setF("billing", v))))], { internal:true, only:"Only your team" }),
+      card("Client email", null, [
+        h("p", { class:"sub", style:"margin-bottom:8px" }, "Mail to or from these addresses is filed into this project. One per line: a domain (acmatthews.com) or an exact address (matt@acmatthews.com). An exact address wins over a domain, so a client with several projects can split their mail."),
+        h("textarea", { class:"ta mono", style:"font-size:12.5px;min-height:84px", placeholder:"acmatthews.com\nmatt@acmatthews.com",
+          value:(p.mail_match || []).join("\n"),
+          onchange:e => { set("mail_match", uniq(e.target.value.split(/[\n,;\s]+/).map(x => x.trim().toLowerCase().replace(/^@/, "")).filter(x => /^[^\s@]+(@[^\s@]+)?\.[a-z]{2,}$/.test(x) || /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(x)))); toast("Saved — new mail follows these rules"); } }),
+        h("div", { class:"hint" }, "The account's own domain (" + (((byId("accounts", p.account_id) || {}).domain) || "none set") + ") also files here when this is the account's only open project.")]),
       card("Customer portal", null, [
         h("p", { class:"sub", style:"margin-bottom:8px" }, "Which tabs the customer sees. Private phases, tasks, files and messages are always hidden."),
         tabRow("plan", "Plan", true), tabRow("overview", "Home & key information"), tabRow("files", "Files"), tabRow("updates", "Project updates"), tabRow("chat", "Chat"),

@@ -451,4 +451,18 @@ function importJson(file){
   fr.readAsText(file);
 }
 
-const VIEWS = { home:viewHome, accounts:viewAccounts, projects:viewProjects, tasks:viewTasks, templates:viewTemplates, timesheets:viewTimesheets, settings:viewSettings };
+/* ---------------- inbox: client mail and calls that belong to no project yet ---------------- */
+function viewInbox(){
+  crumbs = [["Inbox"]];
+  const unassigned = rows("sources", s => !s.project_id);
+  const unprocessed = rows("sources", s => s.project_id && !s.processed_at);
+  return h("div", { class:"page" },
+    pageHead("Mail & calls", "Inbox", "Client mail that matched no project, so you can file it. Mail is checked every 15 minutes; set which addresses belong to a project in that project's Settings → Client email."),
+    !syncConfigured() ? h("div", { class:"note-box" }, "Connect this device to your Orbit Sheet (Settings) to see mail.") : null,
+    card("Not filed to a project", plural(unassigned.length, "item"), sourceList(unassigned, { move:true, empty:"Nothing waiting. Every client email found its project." })),
+    card("Filed, not processed yet", plural(unprocessed.length, "item"), [
+      h("p", { class:"sub", style:"margin-bottom:10px" }, "Ask Claude to “process new mail”: it reads these, proposes decisions, promises and tasks, and you accept what's right."),
+      sourceList(unprocessed, { project:true, empty:"All caught up." })]));
+}
+
+const VIEWS = { home:viewHome, inbox:viewInbox, accounts:viewAccounts, projects:viewProjects, tasks:viewTasks, templates:viewTemplates, timesheets:viewTimesheets, settings:viewSettings };

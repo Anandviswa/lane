@@ -134,10 +134,15 @@ function mailSync(){
   if(!PROPS.getProperty('ZOHO_REFRESH')) return { skipped:'Zoho is not connected yet' };
   var t0 = Date.now(), acct = PROPS.getProperty('ZOHO_ACCOUNT_ID');
   var clients = clientDomains_();
-  if(!Object.keys(clients).length) return { skipped:'No client account in Orbit has a domain yet' };
-  var known = {};
+  if(!clients.size) return { skipped:'No client address or domain is set in Orbit yet' };
+  var known = {}, sigs = {};
   var ssh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('sources');
-  if(ssh) readTab_(ssh).rows.forEach(function(r){ if(r.external_id) known[r.external_id] = 1; });
+  if(ssh) readTab_(ssh).rows.forEach(function(r){
+    if(r.deleted) return;
+    if(r.external_id) known[r.external_id] = 1;
+    if(r.kind === 'email') sigs[sigOf_(addresses_(r.from)[0], r.subject, r.size)] = +new Date(r.occurred_at);
+  });
+  var own = ownAddresses_(acct);
 
   var folders = (zget_('/api/accounts/' + acct + '/folders').data || [])
     .filter(function(f){ return f.folderType === 'Inbox' || f.folderType === 'Sent'; });
@@ -155,45 +160,88 @@ function mailSync(){
     }
     if(!done){ out.folders[f.folderType] = 'ran out of time while listing; the next run continues'; break; }
     fresh.sort(function(a, b){ return +a.receivedTime - +b.receivedTime; });
-    var filed = 0;
+    var filed = 0, skipped = 0;
     for(var k = 0; k < fresh.length; k++){
       if(Date.now() - t0 > MAIL_BUDGET_MS) break;             // the next run carries on from the watermark
       var m = fresh[k]; out.seen++;
       var ext = 'zoho:' + m.messageId, match = matchClient_(m, clients);
+      var sender = addresses_(m.fromAddress || m.sender)[0] || '', subj = unescape_(m.subject || '');
+      var sig = sigOf_(sender, subj, m.size), when = +m.receivedTime;
       if(known[ext]) out.already++;
       else if(!match) out.not_client++;
-      else { fileMail_(acct, f, m, match, ext); known[ext] = 1; filed++; }
+      /* your own mail landing in Inbox (an alias or group on the To/CC) — the Sent copy is the one kept */
+      else if(f.folderType === 'Inbox' && own[sender]) { out.own_copy = (out.own_copy || 0) + 1; }
+      /* the same email delivered more than once (several group addresses) */
+      else if(sigs[sig] && Math.abs(sigs[sig] - when) < 10 * 60000) { out.duplicate = (out.duplicate || 0) + 1; }
+      /* calendar replies carry nothing to act on */
+      else if(/^(accepted|declined|tentative|tentatively accepted|updated invitation|invitation):/i.test(subj)) { out.calendar = (out.calendar || 0) + 1; }
+      else { fileMail_(acct, f, m, match, ext); known[ext] = 1; sigs[sig] = when; filed++; }
       PROPS.setProperty(key, String(m.receivedTime));
     }
-    out.filed += filed; out.folders[f.folderType] = filed;
+    out.filed += filed; out.folders[f.folderType] = (out.folders[f.folderType] || 0) + filed;
   }
   out.seconds = Math.round((Date.now() - t0) / 1000);
   return out;
 }
-/* client domain → { account_id, project_id } (project = the account's only open project, else blank) */
+/* Where mail goes. Each project can list client addresses / domains (its
+   `mail_match`, set in the app under Settings → Client email); an exact address
+   beats a domain. Otherwise the account's `domain` files mail into that
+   account's only open project (or leaves it for the Inbox when it has several). */
 function clientDomains_(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var accts = readTab_(ss.getSheetByName('accounts')).rows, projs = readTab_(ss.getSheetByName('projects')).rows, map = {};
+  var accts = readTab_(ss.getSheetByName('accounts')).rows, projs = readTab_(ss.getSheetByName('projects')).rows;
+  var byAcc = {}, R = { addr:{}, dom:{}, acc:{}, size:0 };
+  accts.forEach(function(a){ if(!a.deleted) byAcc[a.id] = a; });
+  projs.forEach(function(p){
+    if(p.deleted || p.archived || p.status === 'Completed') return;
+    var acc = byAcc[p.account_id] || {}, rules = Array.isArray(p.mail_match) ? p.mail_match : String(p.mail_match || '').split(/[\s,;]+/);
+    rules.forEach(function(x){
+      x = String(x || '').trim().toLowerCase().replace(/^@/, ''); if(!x) return;
+      var hit = { account_id:p.account_id, account:acc.name || '', project_id:p.id };
+      if(x.indexOf('@') > -1) R.addr[x] = hit; else R.dom[x] = hit;
+      R.size++;
+    });
+  });
   accts.forEach(function(a){
     if(a.deleted || a.kind === 'vendor' || !a.domain) return;
     var open = projs.filter(function(p){ return !p.deleted && !p.archived && p.account_id === a.id && p.status !== 'Completed'; });
     String(a.domain).toLowerCase().split(/[,\s]+/).filter(Boolean).forEach(function(d){
-      map[d.replace(/^@/, '')] = { account_id:a.id, account:a.name, project_id:open.length === 1 ? open[0].id : '' };
+      R.acc[d.replace(/^@/, '')] = { account_id:a.id, account:a.name, project_id:open.length === 1 ? open[0].id : '' };
+      R.size++;
     });
   });
-  return map;
+  return R;
+}
+function sigOf_(from, subject, size){ return String(from || '').toLowerCase() + '|' + String(subject || '').trim().toLowerCase() + '|' + String(size || ''); }
+/* Every address that is you: the mailbox, its aliases and send-as addresses (Zoho account details). */
+function ownAddresses_(acct){
+  var cached = PROPS.getProperty('ZOHO_OWN');
+  if(cached) return JSON.parse(cached);
+  var a = {}, list = [];
+  try { a = (zget_('/api/accounts/' + acct).data) || {}; }
+  catch(e){ (zget_('/api/accounts').data || []).forEach(function(x){ if(String(x.accountId) === String(acct)) a = x; }); }
+  [a.primaryEmailAddress, a.mailboxAddress, a.incomingUserName].forEach(function(x){ if(x) list.push(x); });
+  (a.emailAddress || []).forEach(function(e){ if(e && e.mailId) list.push(e.mailId); });
+  (a.sendMailDetails || []).forEach(function(e){ if(e && e.fromAddress) list.push(e.fromAddress); });
+  var own = {}; list.forEach(function(x){ addresses_(x).forEach(function(y){ own[y] = 1; }); });
+  PROPS.setProperty('ZOHO_OWN', JSON.stringify(own));
+  return own;
 }
 function addresses_(s){
   s = unescape_(String(s || ''));
   var found = s.match(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
   return found.map(function(x){ return x.toLowerCase(); });
 }
-function matchClient_(m, clients){
-  var all = addresses_(m.fromAddress).concat(addresses_(m.toAddress), addresses_(m.ccAddress), addresses_(m.sender));
-  for(var i = 0; i < all.length; i++){
-    var dom = all[i].split('@')[1];
-    while(dom){ if(clients[dom]) return clients[dom]; var dot = dom.indexOf('.'); dom = dot > -1 && dom.indexOf('.', dot + 1) > -1 ? dom.slice(dot + 1) : ''; }
-  }
+function domainHit_(map, addr){
+  var dom = addr.split('@')[1];
+  while(dom){ if(map[dom]) return map[dom]; var dot = dom.indexOf('.'); dom = dot > -1 && dom.indexOf('.', dot + 1) > -1 ? dom.slice(dot + 1) : ''; }
+  return null;
+}
+function matchClient_(m, R){
+  var all = addresses_(m.fromAddress).concat(addresses_(m.toAddress), addresses_(m.ccAddress), addresses_(m.sender)), i, hit;
+  for(i = 0; i < all.length; i++) if(R.addr[all[i]]) return R.addr[all[i]];
+  for(i = 0; i < all.length; i++){ hit = domainHit_(R.dom, all[i]); if(hit) return hit; }
+  for(i = 0; i < all.length; i++){ hit = domainHit_(R.acc, all[i]); if(hit) return hit; }
   return null;
 }
 function fileMail_(acct, folder, m, match, ext){
